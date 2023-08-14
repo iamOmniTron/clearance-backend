@@ -23,7 +23,6 @@ module.exports = {
     loginUser: async (req,res,next)=>{
         try{
             const {registrationNumber,password} = TypeSchemas.login.parse(req.body);
-
             const user = await db.User.findOne({where:{registrationNumber}});
             if(!user) return next('Invalid registrationNumber/Password');
             const isMatched = await isPassMatched(password,user.password);

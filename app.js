@@ -30,7 +30,7 @@ app.use((err,_,res,__)=>{
     console.log(JSON.stringify(err));
     if(err){
         if(err.name == "JsonWebTokenError"){
-            return res.json({
+            return res.status(401).json({
                 success:false,
                 message:"User Unauthenticated"
             })
@@ -40,18 +40,18 @@ app.use((err,_,res,__)=>{
             err.issues.forEach(e=>{
                 msg +=`${e.message}, `
             })
-            return res.json({
+            return res.status(400).json({
                 success:false,
                 message:msg
             })
         }
         if(err instanceof Error){
-            return res.json({
+            return res.status(500).json({
                 success:false,
                 message:err.message
             })
         }
-        return res.json({
+        return res.status(500).json({
             success:false,
             message:err
         })

@@ -3,10 +3,11 @@ const {hash,compare} = require("bcrypt");
 const {sign,verify} = require("jsonwebtoken");
 const {ONE_DAY} = require("./defaults");
 const multer = require("multer");
+const path = require("path")
 
 
 const storage =  multer.diskStorage({
-        destination: function (req, file, cb) {
+        destination: function (_, __, cb) {
           cb(null, "./public/documents")
         },
         filename: function (_, file, cb) {

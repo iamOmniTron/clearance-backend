@@ -3,9 +3,9 @@ const { auth } = require("../middlewares");
 const { registerUser, getUsers, deleteUser, updateUser, getUser, profile } = require("../controllers/user");
 const { loginUser, loginAdmin } = require("../controllers/auth");
 const { createFormConfig, createDocumentConfig, getAllFormConfigs, getAllDocumentConfigs, updateFormConfig, updateDocumentConfig, deleteFormConfig, deleteDocumenConfig } = require("../controllers/configs");
-const { uploadForm, deleteForm } = require("../controllers/forms");
+const { uploadForm, deleteForm, getAllForms } = require("../controllers/forms");
 const { upload } = require("../utilities/helpers");
-const { deleteDocument } = require("../controllers/documents");
+const { deleteDocument, getAllDocuments, uploadDocument } = require("../controllers/documents");
 const { addStage, getStages, updateStage, deleteStage } = require("../controllers/stage");
 const { createSession, getSessions, updateSession, deleteSession } = require("../controllers/session");
 
@@ -40,10 +40,12 @@ router.delete("/config/document/delete/:configId",auth,deleteDocumenConfig);
 // FORM
 router.post("/form/upload",auth,uploadForm);
 router.delete("/form/delete/:configId",auth,deleteForm);
+router.get("/form/get-all",auth,getAllForms);
 
 //DOCUMENT
-router.post("/documet/upload",auth,upload.single("document"),uploadForm);
+router.post("/document/upload",auth,upload.single("document"),uploadDocument);
 router.delete("/document/delete/:configId",auth,deleteDocument); 
+router.get("/document/get-all",auth,getAllDocuments);
 
 // STAGE
 router.post("/stage/create",auth,addStage);

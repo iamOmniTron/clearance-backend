@@ -100,7 +100,7 @@ module.exports = {
                     data:adminUser
                 })
             }
-            const user = await db.User.findOne({where:{userId}});
+            const user = await db.User.findOne({where:{id:userId},include:[{model:db.Session},{model:db.Stage,include:[{model:db.Stage,as:"prerequisiteStage"},{model:db.FormConfig},{model:db.DocumentConfig}]}]});
             return res.json({
                 success:true,
                 data:user

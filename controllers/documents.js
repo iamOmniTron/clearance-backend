@@ -32,6 +32,17 @@ module.exports = {
             return next(error);
         }
     },
+    getAllDocuments: async (_,res,next)=>{
+        try {
+            const documents = await db.Document.findAll({include:[{model:db.User,include:[{model:db.Stage}]},{model:db.DocumentConfig}]});
+            return res.json({
+                success:true,
+                data:documents
+            })
+        } catch (error) {
+            return next(error)
+        }
+    },
     deleteDocument: async (req,res,next)=>{
         try {
             const {configId} = req.params;
