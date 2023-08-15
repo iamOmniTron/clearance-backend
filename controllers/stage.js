@@ -1,7 +1,11 @@
 const { z } = require("zod");
 const db = require("../models");
 const { isNullObject } = require("../utilities/helpers");
-const {mutations} = require("../contract");
+const {ethers,Contract}= require('ethers');
+const ContractArtifacts = require("../abis/Clearance.json");
+
+const CONTRACT_ADDRESS = ContractArtifacts.networks['5777'].address;
+const provider = new ethers.JsonRpcProvider('http://127.0.0.1:7545');
 
 
 const TypeSchema = {
@@ -20,22 +24,26 @@ const TypeSchema = {
 
 
 module.exports = {
-    // CREATE BLOCKCHAIN TRANSACTION
     addStage: async (req,res,next)=>{
+        const t = await db.sequelize.transaction();
+        const signer = await provider.getSigner();
+        const mutations = new Contract(CONTRACT_ADDRESS,ContractArtifacts.abi,signer);
         try {
             const stageData = TypeSchema.createStage.parse(req.body);
-            const newStage = await db.Stage.create({...stageData,FormConfigId:stageData.formType,DocumentConfigId:stageData.documentType,prerequisiteStageId:stageData.previousStage,prerequisiteStage:stageData.previousStage});
-            const txResponse = mutations.addStage(newStage.id,stageData.name,newStage.previousStage??0);
-            const txReciept = txResponse.wait();
+            const newStage = await db.Stage.create({...stageData,FormConfigId:stageData.formType,DocumentConfigId:stageData.documentType,prerequisiteStageId:stageData.previousStage,prerequisiteStage:stageData.previousStage},{transaction:t});
+            const txResponse = await mutations.addStage(newStage.id,stageData.name,newStage.previousStage??0);
+            const txReciept = await txResponse.wait();
             if(isNullObject(newStage || !txReciept.hash)) return res.json({
                 success:false,
                 message:"Cannot create stage"
             })
+            await t.commit();
             return res.json({
                 success:true,
                 message:"Stage created successfully"
             })
         } catch (error) {
+            await t.rollback();
             return next(error);
         }
     },
@@ -69,21 +77,25 @@ module.exports = {
         }
     },
     deleteStage: async (req,res,next)=>{
+        const t = await db.sequelize.transaction();
+        const signer = await provider.getSigner();
+        const mutations = new Contract(CONTRACT_ADDRESS,ContractArtifacts.abi,signer);
         try{
             const stageId = TypeSchema.stageId.parse(req.params.stageId);
-            const isDeleted = await db.Stage.destroy({where:{id:stageId}});
-            const txResponse = mutations.deleteStage(+stageId);
-            const txReciept = txResponse.wait();
+            const isDeleted = await db.Stage.destroy({where:{id:stageId}},{transaction:t});
+            const txResponse = await mutations.deleteStage(+stageId);
+            const txReciept = await txResponse.wait();
             if(isDeleted < 1 || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot delete stage"
             })
-
+            await t.commit();
             return res.json({
                 success:true,
                 message:"Stage Deleted successfully"
             })
         }catch(err){
+            await t.rollback();
             return next(err);
         }
     }

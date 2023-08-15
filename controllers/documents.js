@@ -1,7 +1,11 @@
 const { z } = require("zod");
 const db = require("../models");
 const { isNullObject } = require("../utilities/helpers");
-const {mutations} = require("../contract");
+const {ethers,Contract}= require('ethers');
+const ContractArtifacts = require("../abis/Clearance.json");
+
+const CONTRACT_ADDRESS = ContractArtifacts.networks['5777'].address;
+const provider = new ethers.JsonRpcProvider('http://127.0.0.1:7545');
 
 
 const TypeSchema = {
@@ -14,30 +18,34 @@ const TypeSchema = {
 
 module.exports = {
     uploadDocument: async (req,res,next)=>{
+        const t = await db.sequelize.transaction();
+        const signer = await provider.getSigner();
+        const mutations = new Contract(CONTRACT_ADDRESS,ContractArtifacts.abi,signer);
         try {
             const {userId} = req;
             const file = req.file;
             const documentUrl = file.path.replace(/\\/g, "/").substring(7);
             const {documentType} = TypeSchema.documentConfigType.parse(req.body);
-            const isCreated = await db.Document.create({documentUrl,UserId:userId,DocumentConfigId:documentType});
-            const txResponse = mutations.updateAction(+userId);
-            const txReciept = txResponse.wait();
+            const isCreated = await db.Document.create({documentUrl,UserId:userId,DocumentConfigId:documentType},{transaction:t});
+            const txResponse = await mutations.updateAction(+userId);
+            const txReciept = await txResponse.wait();
             if(isNullObject(isCreated) || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot upload document"
             })
-
+            await t.commit();
             return res.json({
                 success:true,
                 message:"Uploaded successfully"
             })
         } catch (error) {
+            await t.rollback();
             return next(error);
         }
     },
     getAllDocuments: async (_,res,next)=>{
         try {
-            const documents = await db.Document.findAll({include:[{model:db.User,include:[{model:db.Stage}]},{model:db.DocumentConfig}]});
+            const documents = await db.Document.findAll({include:[{model:db.User,required:true,include:[{model:db.Stage}]},{model:db.DocumentConfig}]});
             return res.json({
                 success:true,
                 data:documents

@@ -1,7 +1,12 @@
 const db = require("../models");
 const {z} = require("zod");
 const { isNullObject, hashPassword } = require("../utilities/helpers");
-const {mutations} = require("../contract");
+const {ethers,Contract}= require('ethers');
+const ContractArtifacts = require("../abis/Clearance.json");
+
+const CONTRACT_ADDRESS = ContractArtifacts.networks['5777'].address;
+const provider = new ethers.JsonRpcProvider('http://127.0.0.1:7545');
+
 
 const TypeSchema = {
     userData: z.object({
@@ -21,6 +26,9 @@ const TypeSchema = {
 
 module.exports = {
     registerUser: async (req,res,next)=>{
+        const t = await db.sequelize.transaction();
+        const signer = await provider.getSigner();
+        const mutations = new Contract(CONTRACT_ADDRESS,ContractArtifacts.abi,signer);
         try{
             const userData = TypeSchema.userData.parse(req.body)
 
@@ -30,19 +38,20 @@ module.exports = {
                 message:"Student with Registration number already exists"
             })
             const hashedPassword = await hashPassword("12345678")
-            const newUser = await db.User.create({...userData,password:hashedPassword});
+            const newUser = await db.User.create({...userData,password:hashedPassword},{transaction:t});
             const txResponse = await mutations.addUser(newUser.id,userData.StageId);
             const txReciept = await txResponse.wait();
             if(isNullObject(newUser)|| isNullObject(txReciept) || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot register student"
             });
-
+            await t.commit();
             return res.json({
                 success:true,
                 message:"Student Registered successfully"
             })
         }catch(err){
+            await t.rollback()
             return next(err);
         }
     },
@@ -113,25 +122,32 @@ module.exports = {
         }
     },
     deleteUser: async (req,res,next)=>{
+        const t = await db.sequelize.transaction();
+        const signer = await provider.getSigner();
+        const mutations = new Contract(CONTRACT_ADDRESS,ContractArtifacts.abi,signer);
         try {
             const userId = TypeSchema.userId.parse(req.params.userId);
-            const isDeleted = await db.User.destroy({where:{id:userId}});
-            const txResponse = mutations.deleteUser(+userId);
-            const txReciept = txResponse.wait();
+            const isDeleted = await db.User.destroy({where:{id:userId}},{transaction:t});
+            const txResponse = await mutations.deleteUser(+userId);
+            const txReciept = await txResponse.wait();
             if(isDeleted < 1 || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot delete Student"
             });
-
+            await t.commit();
             return res.json({
                 success:true,
                 message:"Student deleted successfully"
             })
         } catch (error) {
+            await t.rollback();
             return next(error)
         }
     },
     advanceUserStage: async (req,res,next)=>{
+        const t = await db.sequelize.transaction();
+        const signer = await provider.getSigner();
+        const mutations = new Contract(CONTRACT_ADDRESS,ContractArtifacts.abi,signer);
         try {
             const userId = TypeSchema.userId.parse(req.params.userId);
             const user = await db.User.findOne({where:{id:userId}});
@@ -145,29 +161,33 @@ module.exports = {
                 success:true,
                 message:"User at final stage"
             })
-            user.StageId = nextStageId;
-            const isSaved = await user.save();
-            const txResponse = mutations.proceedUser(+userId);
-            const txReciept = txResponse.wait();
-            if(!isSaved || !!txReciept.hash) return res.json({
+            const isSaved = await db.User.update({StageId:nextStageId},{where:{id:userId}},{transaction:t})
+            const txResponse = await mutations.proceedUser(+userId);
+            const txReciept = await txResponse.wait();
+            if(!isSaved || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot proceed User Advancement"
             });
+            await t.commit();
             return res.json({
                 success:true,
                 message:"User stage advanced"
             })
         } catch (error) {
+            await t.rollback();
             return next(error)
         }
     },
     reverseUserStage: async (req,res,next)=>{
+        const t = await db.sequelize.transaction();
+        const signer = await provider.getSigner();
+        const mutations = new Contract(CONTRACT_ADDRESS,ContractArtifacts.abi,signer);
         try {
             const userId = TypeSchema.userId.parse(req.params.userId);
             const user = await db.User.findOne({where:{id:userId},include:[{model:db.Stage}]});
             if(!user) return res.status(400).json({
                 success:false,
-                message:"Invalid User"
+                message:"Invalid User" 
             });
             const stages = await db.Stage.findAll();
             const prevStageId = stages.find(({id})=>id === user.Stage.prerequisiteStageId).id;
@@ -176,18 +196,20 @@ module.exports = {
                 message:"User at Initial stage"
             })
             user.StageId = prevStageId;
-            const isSaved = await user.save();
-            const txResponse = mutations.revertUser(+userId);
-            const txReciept = txResponse.wait();
+            const isSaved = await db.User.update({StageId:prevStageId},{where:{id:userId}},{transaction:t})
+            const txResponse = await mutations.revertUser(+userId);
+            const txReciept = await txResponse.wait();
             if(!isSaved || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot proceed User Stage reversal"
             });
+            await t.commit();
             return res.json({
                 success:true,
                 message:"User stage reversed"
             })
         } catch (error) {
+            await t.rollback();
             return next(error)
         }
     },
