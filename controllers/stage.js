@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const db = require("../models");
 const { isNullObject } = require("../utilities/helpers");
+const {mutations} = require("../contract");
 
 
 const TypeSchema = {
@@ -24,7 +25,9 @@ module.exports = {
         try {
             const stageData = TypeSchema.createStage.parse(req.body);
             const newStage = await db.Stage.create({...stageData,FormConfigId:stageData.formType,DocumentConfigId:stageData.documentType,prerequisiteStageId:stageData.previousStage,prerequisiteStage:stageData.previousStage});
-            if(isNullObject(newStage)) return res.json({
+            const txResponse = mutations.addStage(newStage.id,stageData.name,newStage.previousStage??0);
+            const txReciept = txResponse.wait();
+            if(isNullObject(newStage || !txReciept.hash)) return res.json({
                 success:false,
                 message:"Cannot create stage"
             })
@@ -69,7 +72,9 @@ module.exports = {
         try{
             const stageId = TypeSchema.stageId.parse(req.params.stageId);
             const isDeleted = await db.Stage.destroy({where:{id:stageId}});
-            if(isDeleted < 1) return res.json({
+            const txResponse = mutations.deleteStage(+stageId);
+            const txReciept = txResponse.wait();
+            if(isDeleted < 1 || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot delete stage"
             })

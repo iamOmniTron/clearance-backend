@@ -1,6 +1,7 @@
 const db = require("../models");
 const {z} = require("zod");
 const { isNullObject, hashPassword } = require("../utilities/helpers");
+const {mutations} = require("../contract");
 
 const TypeSchema = {
     userData: z.object({
@@ -30,7 +31,9 @@ module.exports = {
             })
             const hashedPassword = await hashPassword("12345678")
             const newUser = await db.User.create({...userData,password:hashedPassword});
-            if(isNullObject(newUser)) return res.json({
+            const txResponse = await mutations.addUser(newUser.id,userData.StageId);
+            const txReciept = await txResponse.wait();
+            if(isNullObject(newUser)|| isNullObject(txReciept) || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot register student"
             });
@@ -113,7 +116,9 @@ module.exports = {
         try {
             const userId = TypeSchema.userId.parse(req.params.userId);
             const isDeleted = await db.User.destroy({where:{id:userId}});
-            if(isDeleted < 1) return res.json({
+            const txResponse = mutations.deleteUser(+userId);
+            const txReciept = txResponse.wait();
+            if(isDeleted < 1 || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot delete Student"
             });
@@ -130,14 +135,11 @@ module.exports = {
         try {
             const userId = TypeSchema.userId.parse(req.params.userId);
             const user = await db.User.findOne({where:{id:userId}});
-            console.log(1)
             if(!user) return res.status(400).json({
                 success:false,
                 message:"Invalid User"
             });
-            console.log(2)
             const stages = await db.Stage.findAll();
-            console.log(3)
             const nextStageId = stages.find(({prerequisiteStageId:id})=>id === user.StageId).id;
             if(!nextStageId) return res.json({
                 success:true,
@@ -145,7 +147,9 @@ module.exports = {
             })
             user.StageId = nextStageId;
             const isSaved = await user.save();
-            if(!isSaved) return res.json({
+            const txResponse = mutations.proceedUser(+userId);
+            const txReciept = txResponse.wait();
+            if(!isSaved || !!txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot proceed User Advancement"
             });
@@ -173,7 +177,9 @@ module.exports = {
             })
             user.StageId = prevStageId;
             const isSaved = await user.save();
-            if(!isSaved) return res.json({
+            const txResponse = mutations.revertUser(+userId);
+            const txReciept = txResponse.wait();
+            if(!isSaved || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot proceed User Stage reversal"
             });

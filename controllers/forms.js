@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const db = require("../models");
 const { isNullObject } = require("../utilities/helpers");
+const {mutations} = require("../contract");
 
 
 const TypeSchema = {
@@ -19,7 +20,9 @@ module.exports = {
             const {userId} = req;
             const formData = TypeSchema.uploadForm.parse(req.body);
             const newForm = await db.Form.create({...formData,UserId:userId,FormConfigId:formData.formType});
-            if(isNullObject(newForm)) return res.json({
+            const txResponse = mutations.updateAction(+userId);
+            const txReciept = txResponse.wait();
+            if(isNullObject(newForm) || !txReciept.hash) return res.json({
                 success:false,
                 message:"Error uploading form"
             })

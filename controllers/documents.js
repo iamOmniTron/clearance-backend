@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const db = require("../models");
 const { isNullObject } = require("../utilities/helpers");
+const {mutations} = require("../contract");
 
 
 const TypeSchema = {
@@ -19,7 +20,9 @@ module.exports = {
             const documentUrl = file.path.replace(/\\/g, "/").substring(7);
             const {documentType} = TypeSchema.documentConfigType.parse(req.body);
             const isCreated = await db.Document.create({documentUrl,UserId:userId,DocumentConfigId:documentType});
-            if(isNullObject(isCreated)) return res.json({
+            const txResponse = mutations.updateAction(+userId);
+            const txReciept = txResponse.wait();
+            if(isNullObject(isCreated) || !txReciept.hash) return res.json({
                 success:false,
                 message:"Cannot upload document"
             })

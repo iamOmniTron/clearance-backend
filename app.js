@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const logger = require("morgan")
 const router = require("./router");
+require("./contract");
 const { ZodError } = require("zod");
 const app = express();
 
