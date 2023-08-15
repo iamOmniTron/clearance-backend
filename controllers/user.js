@@ -125,5 +125,64 @@ module.exports = {
         } catch (error) {
             return next(error)
         }
-    }
+    },
+    advanceUserStage: async (req,res,next)=>{
+        try {
+            const userId = TypeSchema.userId.parse(req.params.userId);
+            const user = await db.User.findOne({where:{id:userId}});
+            console.log(1)
+            if(!user) return res.status(400).json({
+                success:false,
+                message:"Invalid User"
+            });
+            console.log(2)
+            const stages = await db.Stage.findAll();
+            console.log(3)
+            const nextStageId = stages.find(({prerequisiteStageId:id})=>id === user.StageId).id;
+            if(!nextStageId) return res.json({
+                success:true,
+                message:"User at final stage"
+            })
+            user.StageId = nextStageId;
+            const isSaved = await user.save();
+            if(!isSaved) return res.json({
+                success:false,
+                message:"Cannot proceed User Advancement"
+            });
+            return res.json({
+                success:true,
+                message:"User stage advanced"
+            })
+        } catch (error) {
+            return next(error)
+        }
+    },
+    reverseUserStage: async (req,res,next)=>{
+        try {
+            const userId = TypeSchema.userId.parse(req.params.userId);
+            const user = await db.User.findOne({where:{id:userId},include:[{model:db.Stage}]});
+            if(!user) return res.status(400).json({
+                success:false,
+                message:"Invalid User"
+            });
+            const stages = await db.Stage.findAll();
+            const prevStageId = stages.find(({id})=>id === user.Stage.prerequisiteStageId).id;
+            if(!prevStageId) return res.json({
+                success:true,
+                message:"User at Initial stage"
+            })
+            user.StageId = prevStageId;
+            const isSaved = await user.save();
+            if(!isSaved) return res.json({
+                success:false,
+                message:"Cannot proceed User Stage reversal"
+            });
+            return res.json({
+                success:true,
+                message:"User stage reversed"
+            })
+        } catch (error) {
+            return next(error)
+        }
+    },
 }

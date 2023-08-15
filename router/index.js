@@ -1,6 +1,6 @@
 const express = require("express");
 const { auth } = require("../middlewares");
-const { registerUser, getUsers, deleteUser, updateUser, getUser, profile } = require("../controllers/user");
+const { registerUser, getUsers, deleteUser, updateUser, getUser, profile, advanceUserStage, reverseUserStage } = require("../controllers/user");
 const { loginUser, loginAdmin } = require("../controllers/auth");
 const { createFormConfig, createDocumentConfig, getAllFormConfigs, getAllDocumentConfigs, updateFormConfig, updateDocumentConfig, deleteFormConfig, deleteDocumenConfig } = require("../controllers/configs");
 const { uploadForm, deleteForm, getAllForms } = require("../controllers/forms");
@@ -25,6 +25,8 @@ router.delete("/student/delete/:userId",auth,deleteUser);
 router.put("/student/update/:userId",auth,updateUser);
 router.get("/student/find/:registrationNumber",getUser);
 router.get("/profile",auth,profile);
+router.put("/student/stage/advance/:userId",auth,advanceUserStage);
+router.put("/student/stage/reverse-advance/:userId",auth,reverseUserStage);
 
 // CONFIGS
 router.post("/config/form/create",auth,createFormConfig);
@@ -52,6 +54,7 @@ router.post("/stage/create",auth,addStage);
 router.get("/stage/get-all",auth,getStages);
 router.put("/stage/update/:stageId",auth,updateStage);
 router.delete("/stage/delete/:stageId",auth,deleteStage);
+
 
 
 // SESSIONS
